@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Shop - Steve Computer Warehouse</title>
-  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="css/style.css" />
   <style>
     .product-card {
       border: 1px solid #ccc;
@@ -87,7 +87,7 @@
   <section id="productList" style="display: flex; flex-wrap: wrap; gap: 20px; padding: 20px;"></section>
 
   <script type="module">
-    import { db, auth } from "../js/firebase.js";
+    import { db, auth } from "js/firebase.js";
     import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 

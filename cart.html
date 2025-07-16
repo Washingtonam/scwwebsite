@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Your Cart - Steve Computer Warehouse</title>
-  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="css/style.css">
   <style>
     table {
       width: 90%;
@@ -84,7 +84,7 @@
 
   <script type="module">
     import { signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { auth } from "../js/firebase.js";
+    import { auth } from "js/firebase.js";
 
     window.logoutUser = function () {
       signOut(auth).then(() => {
