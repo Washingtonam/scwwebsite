@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Shop - Steve Computer Warehouse</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .product-card {
+      border: 1px solid #ccc;
+      padding: 10px;
+      width: 200px;
+      cursor: pointer;
+    }
+
+    .product-card img {
+      width: 100%;
+    }
+
+    .product-card button {
+      margin-top: 5px;
+      padding: 6px 10px;
+      border: none;
+      cursor: pointer;
+      color: white;
+      border-radius: 3px;
+    }
+
+    .add-btn {
+      background-color: #007bff;
+    }
+
+    .checkout-btn {
+      background-color: #28a745;
+    }
+
+    .product-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .nav-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #f8f8f8;
+      padding: 10px 20px;
+    }
+
+    .nav-bar a {
+      margin: 0 10px;
+      text-decoration: none;
+      color: #333;
+    }
+
+    .search-bar input {
+      padding: 6px;
+      width: 200px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="nav-bar">
+      <div>
+        <a href="shop.html">Shop</a>
+        <a href="profile.html">Profile</a>
+        <a href="cart.html">Cart</a>
+        <a href="#" onclick="logoutUser()">Logout</a>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Search products..." oninput="searchProducts()">
+      </div>
+    </div>
+    <h1>Available Products</h1>
+    <div style="padding: 0 20px;">
+      <label for="category">Filter by Category:</label>
+      <select id="category">
+        <option value="all">All</option>
+        <option value="new">New Laptop</option>
+        <option value="uk-used">UK-Used Laptop</option>
+        <option value="accessories">Accessories</option>
+      </select>
+    </div>
+  </header>
+
+  <section id="productList" style="display: flex; flex-wrap: wrap; gap: 20px; padding: 20px;"></section>
+
+  <script type="module">
+    import { db, auth } from "../js/firebase.js";
+    import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    let allProducts = [];
+
+    async function loadProducts() {
+      const category = document.getElementById("category").value;
+      const productList = document.getElementById("productList");
+      productList.innerHTML = "Loading...";
+
+      const querySnapshot = await getDocs(collection(db, "products"));
+      allProducts = [];
+      querySnapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.approved) {
+          allProducts.push({ id: doc.id, ...data });
+        }
+      });
+
+      let filtered = allProducts;
+      if (category !== "all") {
+        filtered = allProducts.filter(p => {
+          const cat = (p.category || "").toLowerCase().trim();
+          return cat === category;
+        });
+      }
+
+      renderProducts(filtered);
+    }
+
+    function renderProducts(products) {
+      const productList = document.getElementById("productList");
+      productList.innerHTML = "";
+      if (products.length === 0) {
+        productList.innerHTML = "<p>No products found.</p>";
+        return;
+      }
+
+      products.forEach((product) => {
+        const div = document.createElement("div");
+        div.className = "product-card";
+        div.innerHTML = `
+          <img src="${product.image}" alt="${product.name}" />
+          <h4>${product.name}</h4>
+          <p>&#8358;${product.price}</p>
+          <div class="product-actions">
+            <button class="add-btn">Add to Cart</button>
+            <button class="checkout-btn">Buy Now</button>
+          </div>
+        `;
+
+        div.querySelector("img").addEventListener("click", () => window.viewProduct(product.id));
+        div.querySelector("h4").addEventListener("click", () => window.viewProduct(product.id));
+        div.querySelector(".add-btn").addEventListener("click", () => window.addToCart(product.id));
+        div.querySelector(".checkout-btn").addEventListener("click", () => window.goToCheckout(product.id));
+
+        productList.appendChild(div);
+      });
+    }
+
+    window.viewProduct = function (productId) {
+      window.location.href = `product.html?id=${productId}`;
+    };
+
+    window.addToCart = function (productId) {
+      const product = allProducts.find(p => p.id === productId);
+      const cart = JSON.parse(localStorage.getItem("cart")) || [];
+      cart.push(product);
+      localStorage.setItem("cart", JSON.stringify(cart));
+      alert("Item added to cart!");
+    };
+
+    window.goToCheckout = function (productId) {
+      const product = allProducts.find(p => p.id === productId);
+      localStorage.setItem("cart", JSON.stringify([product]));
+      window.location.href = "checkout.html";
+    };
+
+    window.logoutUser = function () {
+      signOut(auth).then(() => {
+        localStorage.removeItem("currentUser");
+        window.location.href = "login.html";
+      });
+    };
+
+    window.searchProducts = function () {
+      const query = document.getElementById("searchInput").value.toLowerCase();
+      const filtered = allProducts.filter(p => p.name.toLowerCase().includes(query));
+      renderProducts(filtered);
+    };
+
+    window.updateNavForUser = () => {};
+
+    window.addEventListener("DOMContentLoaded", () => {
+      updateNavForUser();
+      loadProducts();
+      document.getElementById("category").addEventListener("change", loadProducts);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!-- /admin/users.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Registered Users - Admin</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body onload="checkAdminAuth(); loadUsers()">
+  <header>
+    <h1>Registered Users</h1>
+    <nav>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="manage-products.html">Manage Products</a>
+      <a href="#" onclick="logoutAdmin()">Logout</a>
+    </nav>
+  </header>
+
+  <section style="padding: 20px; max-width: 900px; margin: auto;">
+    <table border="1" width="100%" cellpadding="10">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="userTable"></tbody>
+    </table>
+  </section>
+
+  <script>
+    function checkAdminAuth() {
+      const current = JSON.parse(localStorage.getItem("currentUser"));
+      if (!current || current.role !== "admin") {
+        alert("Admin access only");
+        location.href = "../user/login.html";
+      }
+    }
+
+    function loadUsers() {
+      const users = JSON.parse(localStorage.getItem("users")) || [];
+      const table = document.getElementById("userTable");
+
+      if (users.length === 0) {
+        table.innerHTML = '<tr><td colspan="4">No users found.</td></tr>';
+        return;
+      }
+
+      table.innerHTML = users.map((user, index) => `
+        <tr>
+          <td>${user.name}</td>
+          <td>${user.email}</td>
+          <td>${user.role}</td>
+          <td>
+            ${user.role === 'user' ? `<button onclick="promote(${index})">Promote to Admin</button>` : ''}
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    function promote(index) {
+      const users = JSON.parse(localStorage.getItem("users")) || [];
+      users[index].role = "admin";
+      localStorage.setItem("users", JSON.stringify(users));
+      loadUsers();
+      alert("User promoted to admin.");
+    }
+
+    function logoutAdmin() {
+      localStorage.removeItem("currentUser");
+      location.href = "../user/login.html";
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Register - Steve Computer Warehouse</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <header>
+    <h1>Create Account</h1>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="login.html">Login</a>
+    </nav>
+  </header>
+
+  <section style="max-width: 400px; margin: auto; padding: 20px;">
+    <form id="registerForm">
+      <input type="text" id="name" placeholder="Full Name" required><br><br>
+      <input type="email" id="email" placeholder="Email" required><br><br>
+      <input type="password" id="password" placeholder="Password" required><br><br>
+      <button type="submit">Register</button>
+      <p id="registerMsg" style="color: green;"></p>
+    </form>
+  </section>
+
+  <footer>
+    <p>&copy; 2025 Steve Computer Warehouse</p>
+  </footer>
+
+  <!-- Firebase register logic -->
+  <script type="module">
+    import { auth, db } from "../js/firebase.js";
+    import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { setDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const name = document.getElementById("name").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
+
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        await setDoc(doc(db, "users", user.uid), {
+          name,
+          email,
+          role: "user"
+        });
+
+        document.getElementById("registerMsg").innerText = "Registration successful! You can now login.";
+        document.getElementById("registerForm").reset();
+      } catch (error) {
+        document.getElementById("registerMsg").style.color = 'red';
+        document.getElementById("registerMsg").innerText = "Registration failed: " + error.message;
+      }
+    });
+  </script>
+</body>
+</html>

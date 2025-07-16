@@ -1,0 +1,118 @@
+<!-- /admin/add-product.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Add Product - Admin</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body onload="checkAdminAuth()">
+  <header>
+    <h1>Add Product</h1>
+    <nav>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="manage-products.html">Manage Products</a>
+      <a href="orders.html">View Orders</a>
+      <a href="users.html">View Users</a>
+      <a href="#" onclick="logoutAdmin()">Logout</a>
+    </nav>
+  </header>
+
+  <section style="max-width: 600px; margin: auto; padding: 20px;">
+    <form id="addProductForm">
+      <label>Product Name</label>
+      <input type="text" id="name" required><br><br>
+
+      <label>Price (₦)</label>
+      <input type="text" id="price" required><br><br>
+
+      <label>Category (e.g., new, uk-used)</label>
+      <input type="text" id="category" required><br><br>
+
+      <label>Product Description</label>
+      <textarea id="description" required></textarea><br><br>
+
+      <label>Upload Image</label>
+      <input type="file" id="imageFile"><br><br>
+
+      <label>Or paste image URL</label>
+      <input type="text" id="imageUrl"><br><br>
+
+      <label>Approve Now?</label>
+      <select id="approved">
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select><br><br>
+
+      <button type="submit">Upload Product</button>
+      <p id="statusMsg" style="color: green;"></p>
+    </form>
+  </section>
+
+  <footer>
+    <p>&copy; 2025 Steve Computer Warehouse</p>
+  </footer>
+
+  <script type="module">
+    import { db, storage } from "../js/firebase.js";
+    import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+    document.getElementById("addProductForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("name").value.trim();
+      const price = document.getElementById("price").value.trim();
+      const category = document.getElementById("category").value.trim();
+      const description = document.getElementById("description").value.trim();
+      const approved = document.getElementById("approved").value === "true";
+      const file = document.getElementById("imageFile").files[0];
+      const imageUrlInput = document.getElementById("imageUrl").value.trim();
+
+      const statusMsg = document.getElementById("statusMsg");
+      statusMsg.textContent = "Uploading...";
+
+      let imageURL = "";
+
+      try {
+        if (file) {
+          const imageRef = ref(storage, `products/${Date.now()}_${file.name}`);
+          await uploadBytes(imageRef, file);
+          imageURL = await getDownloadURL(imageRef);
+        } else if (imageUrlInput) {
+          imageURL = imageUrlInput;
+        }
+
+        await addDoc(collection(db, "products"), {
+          name,
+          price,
+          category,
+          image: imageURL,
+          description,
+          approved,
+          createdAt: serverTimestamp()
+        });
+
+        statusMsg.textContent = "Product uploaded successfully!";
+        document.getElementById("addProductForm").reset();
+      } catch (error) {
+        console.error("Upload error:", error);
+        statusMsg.textContent = "Failed to upload product.";
+        statusMsg.style.color = "red";
+      }
+    });
+
+    function checkAdminAuth() {
+      const current = JSON.parse(localStorage.getItem("currentUser"));
+      if (!current || current.role !== "admin") {
+        alert("Admin access only");
+        location.href = "../user/login.html";
+      }
+    }
+
+    function logoutAdmin() {
+      localStorage.removeItem("currentUser");
+      location.href = "../user/login.html";
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - Steve Computer Warehouse</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <header>
+    <h1>Login</h1>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="register.html">Register</a>
+    </nav>
+  </header>
+
+  <section style="max-width: 400px; margin: auto; padding: 20px;">
+    <form id="loginForm">
+      <input type="email" id="email" placeholder="Email" required><br><br>
+      <input type="password" id="password" placeholder="Password" required><br><br>
+      <button type="submit">Login</button>
+      <p id="loginMsg" style="color: red;"></p>
+    </form>
+  </section>
+
+  <footer>
+    <p>&copy; 2025 Steve Computer Warehouse</p>
+  </footer>
+
+  <!-- Firebase login logic -->
+  <script type="module">
+    import { auth, db } from "../js/firebase.js";
+    import { signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
+
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          localStorage.setItem("currentUser", JSON.stringify({ ...userData, uid: user.uid }));
+
+          if (userData.role === "admin") {
+            window.location.href = "../admin/dashboard.html";
+          } else {
+            window.location.href = "shop.html";
+          }
+        } else {
+          document.getElementById("loginMsg").innerText = "User data not found.";
+        }
+      } catch (error) {
+        document.getElementById("loginMsg").innerText = "Login failed: " + error.message;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>All Orders - Admin</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .order-box {
+      border: 1px solid #ccc;
+      padding: 15px;
+      margin: 15px auto;
+      max-width: 800px;
+      background: #f9f9f9;
+    }
+    .order-box h3 {
+      margin-bottom: 5px;
+    }
+    .order-box ul {
+      padding-left: 20px;
+    }
+    #controls {
+      max-width: 800px;
+      margin: auto;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 10px 0;
+    }
+    #controls input, #controls select, #controls button {
+      padding: 5px;
+      font-size: 14px;
+    }
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: 5px;
+      max-width: 500px;
+      width: 100%;
+    }
+    .modal-buttons {
+      margin-top: 20px;
+      text-align: right;
+    }
+    .modal-buttons button {
+      margin-left: 10px;
+    }
+    .print-btn {
+      background-color: #444;
+      color: white;
+      padding: 5px 10px;
+      border: none;
+      margin-top: 5px;
+      cursor: pointer;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>All Orders</h1>
+    <nav>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="../user/shop.html">Shop</a>
+    </nav>
+  </header>
+
+  <section id="controls">
+    <input type="email" id="searchEmail" placeholder="Search by email">
+    <input type="date" id="startDate">
+    <input type="date" id="endDate">
+    <select id="statusFilter">
+      <option value="">All Statuses</option>
+      <option value="pending">Pending</option>
+      <option value="shipped">Shipped</option>
+      <option value="completed">Completed</option>
+    </select>
+    <select id="sortOrder">
+      <option value="desc">Newest First</option>
+      <option value="asc">Oldest First</option>
+    </select>
+    <button onclick="exportCSV()">Export to CSV</button>
+  </section>
+
+  <section id="orderList" style="padding: 20px;"></section>
+  <div id="modalContainer"></div>
+
+  <script type="module">
+    import { db } from "../js/firebase.js";
+    import { collection, getDocs, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const orderList = document.getElementById("orderList");
+    const searchEmail = document.getElementById("searchEmail");
+    const startDate = document.getElementById("startDate");
+    const endDate = document.getElementById("endDate");
+    const statusFilter = document.getElementById("statusFilter");
+    const sortOrder = document.getElementById("sortOrder");
+    const modalContainer = document.getElementById("modalContainer");
+
+    let orders = [];
+    let currentPage = 1;
+    const ordersPerPage = 5;
+
+    emailjs.init("user_xxxxxx"); // Replace with your actual EmailJS public key
+
+    async function fetchOrders() {
+      orderList.innerHTML = "<p>Loading orders...</p>";
+      try {
+        const snapshot = await getDocs(collection(db, "orders"));
+        orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), status: doc.data().status || "pending" }));
+        displayOrders();
+      } catch (err) {
+        orderList.innerHTML = "<p>Error loading orders.</p>";
+        console.error(err);
+      }
+    }
+
+    function displayOrders() {
+      const emailQuery = searchEmail.value.toLowerCase();
+      const start = startDate.value ? new Date(startDate.value) : null;
+      const end = endDate.value ? new Date(endDate.value) : null;
+      const status = statusFilter.value;
+      const sort = sortOrder.value;
+
+      let filtered = orders.filter(order => {
+        const matchEmail = !emailQuery || order.email.toLowerCase().includes(emailQuery);
+        const orderDate = new Date(order.time);
+        const matchStart = !start || orderDate >= start;
+        const matchEnd = !end || orderDate <= end;
+        const matchStatus = !status || order.status === status;
+        return matchEmail && matchStart && matchEnd && matchStatus;
+      });
+
+      filtered.sort((a, b) => {
+        const dateA = new Date(a.time);
+        const dateB = new Date(b.time);
+        return sort === "asc" ? dateA - dateB : dateB - dateA;
+      });
+
+      const startIndex = (currentPage - 1) * ordersPerPage;
+      const paginated = filtered.slice(startIndex, startIndex + ordersPerPage);
+
+      orderList.innerHTML = "";
+
+      if (filtered.length === 0) {
+        orderList.innerHTML = "<p>No matching orders found.</p>";
+        return;
+      }
+
+      paginated.forEach(order => {
+        const items = order.cart.map(item => `<li>${item.name} - ₦${item.price}</li>`).join("");
+        orderList.innerHTML += `
+          <div class="order-box">
+            <h3>${order.name} (${order.email})</h3>
+            <p><strong>Phone:</strong> ${order.phone}</p>
+            <p><strong>Address:</strong> ${order.address}</p>
+            <p><strong>Time:</strong> ${order.time}</p>
+            <p><strong>Status:</strong>
+              <select onchange="updateOrderStatus('${order.id}', this.value, '${order.email}', '${order.name}')">
+                <option value="pending" ${order.status === "pending" ? "selected" : ""}>Pending</option>
+                <option value="shipped" ${order.status === "shipped" ? "selected" : ""}>Shipped</option>
+                <option value="completed" ${order.status === "completed" ? "selected" : ""}>Completed</option>
+              </select>
+            </p>
+            <p><strong>Items:</strong></p>
+            <ul>${items}</ul>
+            <p><strong>Total:</strong> ₦${order.cart.reduce((sum, i) => sum + Number(i.price), 0).toLocaleString()}</p>
+            <button onclick="showDeleteModal('${order.id}')">Delete Order</button>
+            <button class="print-btn" onclick="printOrder(${JSON.stringify(order).replace(/"/g, '&quot;')})">Print</button>
+          </div>
+        `;
+      });
+
+      renderPagination(filtered.length);
+    }
+
+    window.updateOrderStatus = async function(id, status, email, name) {
+      try {
+        await updateDoc(doc(db, "orders", id), { status });
+        orders = orders.map(o => o.id === id ? { ...o, status } : o);
+        displayOrders();
+        emailjs.send("service_xxxx", "template_status", {
+          to_name: name,
+          to_email: email,
+          order_status: status
+        });
+      } catch (err) {
+        alert("Failed to update status.");
+        console.error(err);
+      }
+    }
+
+    function renderPagination(totalOrders) {
+      const totalPages = Math.ceil(totalOrders / ordersPerPage);
+      let controls = "<div style='text-align:center; margin-top: 20px;'>";
+      for (let i = 1; i <= totalPages; i++) {
+        controls += `<button onclick="goToPage(${i})" style="margin: 0 5px;${i === currentPage ? 'font-weight:bold;' : ''}">${i}</button>`;
+      }
+      controls += "</div>";
+      orderList.innerHTML += controls;
+    }
+
+    window.goToPage = function(page) {
+      currentPage = page;
+      displayOrders();
+    }
+
+    function showDeleteModal(id) {
+      modalContainer.innerHTML = `
+        <div class="modal">
+          <div class="modal-content">
+            <h3>Confirm Delete</h3>
+            <p>Are you sure you want to delete this order?</p>
+            <div class="modal-buttons">
+              <button onclick="confirmDelete('${id}')">Yes, Delete</button>
+              <button onclick="closeModal()">Cancel</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    window.closeModal = function() {
+      modalContainer.innerHTML = "";
+    }
+
+    window.confirmDelete = async function(id) {
+      try {
+        await deleteDoc(doc(db, "orders", id));
+        orders = orders.filter(o => o.id !== id);
+        closeModal();
+        displayOrders();
+      } catch (err) {
+        alert("Failed to delete order.");
+        console.error(err);
+      }
+    }
+
+    window.printOrder = function(order) {
+      const win = window.open('', '', 'width=800,height=600');
+      const items = order.cart.map(i => `${i.name} - ₦${i.price}`).join("<br>");
+      win.document.write(`
+        <h1>Order for ${order.name}</h1>
+        <p><strong>Email:</strong> ${order.email}</p>
+        <p><strong>Phone:</strong> ${order.phone}</p>
+        <p><strong>Address:</strong> ${order.address}</p>
+        <p><strong>Status:</strong> ${order.status}</p>
+        <p><strong>Items:</strong><br>${items}</p>
+        <p><strong>Total:</strong> ₦${order.cart.reduce((sum, i) => sum + Number(i.price), 0).toLocaleString()}</p>
+      `);
+      win.print();
+    }
+
+    searchEmail.addEventListener("input", displayOrders);
+    startDate.addEventListener("change", displayOrders);
+    endDate.addEventListener("change", displayOrders);
+    statusFilter.addEventListener("change", displayOrders);
+    sortOrder.addEventListener("change", displayOrders);
+
+    window.exportCSV = function() {
+      const rows = [
+        ["Name", "Email", "Phone", "Address", "Time", "Status", "Items"]
+      ];
+
+      orders.forEach(order => {
+        const itemNames = order.cart.map(i => `${i.name} (₦${i.price})`).join(";");
+        rows.push([order.name, order.email, order.phone, order.address, order.time, order.status || "pending", itemNames]);
+      });
+
+      let csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "orders.csv");
+      document.body.appendChild(link);
+      link.click();
+    }
+
+    fetchOrders();
+  </script>
+</body>
+</html>

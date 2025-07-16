@@ -1,0 +1,93 @@
+<!-- /admin/edit-product.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Edit Product - Admin</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body onload="checkAdminAuth(); loadProductForEdit()">
+  <header>
+    <h1>Edit Product</h1>
+    <nav>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="manage-products.html">Manage Products</a>
+      <a href="#" onclick="logoutAdmin()">Logout</a>
+    </nav>
+  </header>
+
+  <section style="max-width: 600px; margin: auto; padding: 20px;">
+    <form id="editForm" onsubmit="saveEditedProduct(event)">
+      <input type="text" id="productName" placeholder="Product Name" required><br><br>
+      <input type="number" id="productPrice" placeholder="Product Price" required><br><br>
+      <input type="text" id="productImage" placeholder="Product Image URL" required><br><br>
+      <input type="hidden" id="productIndex">
+      <button type="submit">Save Changes</button>
+      <p id="msg" style="color: green;"></p>
+    </form>
+  </section>
+
+  <script>
+    function checkAdminAuth() {
+      const current = JSON.parse(localStorage.getItem("currentUser"));
+      if (!current || current.role !== "admin") {
+        alert("Admin access only");
+        location.href = "../user/login.html";
+      }
+    }
+
+    function getQueryParam(param) {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(param);
+    }
+
+    function loadProductForEdit() {
+      const index = getQueryParam('id');
+      if (index === null) {
+        alert("No product selected.");
+        location.href = "manage-products.html";
+        return;
+      }
+
+      const products = JSON.parse(localStorage.getItem("products")) || [];
+      const product = products[index];
+
+      if (!product) {
+        alert("Product not found.");
+        location.href = "manage-products.html";
+        return;
+      }
+
+      document.getElementById("productIndex").value = index;
+      document.getElementById("productName").value = product.name;
+      document.getElementById("productPrice").value = product.price;
+      document.getElementById("productImage").value = product.image;
+    }
+
+    function saveEditedProduct(e) {
+      e.preventDefault();
+
+      const index = document.getElementById("productIndex").value;
+      const name = document.getElementById("productName").value.trim();
+      const price = document.getElementById("productPrice").value;
+      const image = document.getElementById("productImage").value.trim();
+
+      const products = JSON.parse(localStorage.getItem("products")) || [];
+
+      if (!products[index]) {
+        alert("Product no longer exists.");
+        return;
+      }
+
+      products[index] = { name, price, image };
+      localStorage.setItem("products", JSON.stringify(products));
+      document.getElementById("msg").innerText = "Product updated successfully!";
+    }
+
+    function logoutAdmin() {
+      localStorage.removeItem("currentUser");
+      location.href = "../user/login.html";
+    }
+  </script>
+</body>
+</html>

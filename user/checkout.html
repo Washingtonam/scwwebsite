@@ -1,0 +1,151 @@
+<!-- /user/checkout.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Checkout - Steve Computer Warehouse</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <script src="https://js.paystack.co/v1/inline.js"></script>
+  <style>
+    ul { padding-left: 20px; }
+    li { margin-bottom: 10px; }
+    .remove-btn {
+      color: red;
+      cursor: pointer;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body onload="updateNavForUser(); loadCheckout()">
+  <header>
+    <h1>Checkout</h1>
+    <nav>
+      <a href="shop.html">Shop</a>
+      <a href="cart.html">Cart</a>
+      <a href="profile.html">Profile</a>
+      <a href="#" onclick="logout()">Logout</a>
+    </nav>
+  </header>
+
+  <section style="padding: 20px; max-width: 800px; margin: auto;">
+    <h2>Your Cart</h2>
+    <div id="cartItems"></div>
+    <hr />
+
+    <h2>Delivery Information</h2>
+    <form id="checkoutForm" onsubmit="payWithPaystack(event)">
+      <input type="text" id="fullName" placeholder="Full Name" required><br><br>
+      <input type="text" id="phone" placeholder="Phone Number" required><br><br>
+      <input type="email" id="email" placeholder="Email Address" required><br><br>
+      <textarea id="address" placeholder="Delivery Address" required></textarea><br><br>
+      <button type="submit">Pay Now</button>
+      <p id="orderSuccess" style="color: green;"></p>
+    </form>
+  </section>
+
+  <footer>
+    <p>&copy; 2025 Steve Computer Warehouse</p>
+  </footer>
+
+  <script type="module">
+    import { signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { auth } from "../js/firebase.js";
+
+    let cart = [];
+    let total = 0;
+
+    window.loadCheckout = function () {
+      cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+      const cartDiv = document.getElementById("cartItems");
+      cartDiv.innerHTML = "";
+
+      if (cart.length === 0) {
+        cartDiv.innerHTML = "<p>Your cart is empty.</p>";
+        document.getElementById("checkoutForm").style.display = "none";
+        return;
+      }
+
+      total = 0;
+      const ul = document.createElement("ul");
+
+      cart.forEach((item, index) => {
+        total += Number(item.price);
+        const li = document.createElement("li");
+        li.innerHTML = `
+          ${item.name} - ₦${item.price.toLocaleString()}
+          <span class="remove-btn" onclick="removeItem(${index})">[Remove]</span>
+        `;
+        ul.appendChild(li);
+      });
+
+      cartDiv.appendChild(ul);
+      cartDiv.innerHTML += `<p><strong>Total:</strong> ₦${total.toLocaleString()}</p>`;
+    };
+
+    window.removeItem = function (index) {
+      cart.splice(index, 1);
+      localStorage.setItem("cart", JSON.stringify(cart));
+      loadCheckout();
+    };
+
+    window.payWithPaystack = function (e) {
+      e.preventDefault();
+      const name = document.getElementById("fullName").value;
+      const phone = document.getElementById("phone").value;
+      const email = document.getElementById("email").value;
+      const address = document.getElementById("address").value;
+
+      const handler = PaystackPop.setup({
+        key: 'pk_test_f0a111652a4fc257d0477d0aa29c967e0ab9b2c3',
+        email: email,
+        amount: total * 100,
+        currency: "NGN",
+        metadata: {
+          custom_fields: [
+            { display_name: name, variable_name: "phone", value: phone }
+          ]
+        },
+        callback: function(response) {
+          saveOrder(name, phone, email, address);
+          alert("Payment complete! Ref: " + response.reference);
+        },
+        onClose: function() {
+          alert("Payment window closed.");
+        }
+      });
+
+      handler.openIframe();
+    };
+
+    function saveOrder(name, phone, email, address) {
+      const order = {
+        id: Date.now(),
+        name,
+        phone,
+        email,
+        address,
+        cart,
+        time: new Date().toLocaleString()
+      };
+      const orders = JSON.parse(localStorage.getItem("orders")) || [];
+      orders.push(order);
+      localStorage.setItem("orders", JSON.stringify(orders));
+      localStorage.removeItem("cart");
+
+      document.getElementById("orderSuccess").innerText = "Order placed successfully!";
+      document.getElementById("checkoutForm").reset();
+      document.getElementById("cartItems").innerHTML = "<p>Thank you for your order.</p>";
+    }
+
+    window.logout = function () {
+      signOut(auth).then(() => {
+        localStorage.removeItem("currentUser");
+        window.location.href = "login.html";
+      });
+    };
+
+    window.updateNavForUser = () => {};
+  </script>
+</body>
+</html>

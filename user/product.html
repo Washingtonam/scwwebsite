@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Product Details - Steve Computer Warehouse</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <style>
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 20px;
+      border: 1px solid #ccc;
+      display: flex;
+      gap: 20px;
+    }
+    .container img {
+      width: 300px;
+    }
+    .details {
+      flex: 1;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+    }
+    .add-btn { background: #007bff; }
+    .buy-btn { background: #28a745; }
+
+    .suggestions {
+      max-width: 900px;
+      margin: 40px auto;
+    }
+    .suggestions h3 {
+      margin-bottom: 15px;
+    }
+    .product-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    .suggestion-card {
+      border: 1px solid #ccc;
+      width: 200px;
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+    }
+    .suggestion-card img {
+      width: 100%;
+    }
+    .suggestion-card button {
+      margin-top: 5px;
+      padding: 6px 10px;
+      background: #007bff;
+      border: none;
+      color: white;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav style="padding: 10px;">
+      <a href="shop.html">← Back to Shop</a>
+    </nav>
+  </header>
+
+  <section id="productDetails" class="container">Loading...</section>
+
+  <section class="suggestions">
+    <h3>You May Also Like</h3>
+    <div id="relatedProducts" class="product-list">Loading...</div>
+  </section>
+
+  <script type="module">
+    import { db } from "../js/firebase.js";
+    import {
+      doc, getDoc, collection, getDocs, query, where
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const productId = urlParams.get("id");
+    let currentProduct = null;
+
+    async function loadProductDetails() {
+      const ref = doc(db, "products", productId);
+      const snap = await getDoc(ref);
+      if (!snap.exists()) {
+        document.getElementById("productDetails").innerHTML = "<p>Product not found.</p>";
+        return;
+      }
+
+      const product = snap.data();
+      currentProduct = { id: productId, ...product };
+
+      const container = document.getElementById("productDetails");
+      container.innerHTML = `
+        <img src="${product.image}" alt="${product.name}" />
+        <div class="details">
+          <h2>${product.name}</h2>
+          <p><strong>Price:</strong> ₦${product.price}</p>
+          <p><strong>Category:</strong> ${product.category}</p>
+          <p><strong>Description:</strong> ${product.description || "No description available."}</p>
+          <button class="add-btn">Add to Cart</button>
+          <button class="buy-btn">Buy Now</button>
+        </div>
+      `;
+
+      container.querySelector(".add-btn").addEventListener("click", () => {
+        const cart = JSON.parse(localStorage.getItem("cart")) || [];
+        cart.push(currentProduct);
+        localStorage.setItem("cart", JSON.stringify(cart));
+        alert("Item added to cart!");
+      });
+
+      container.querySelector(".buy-btn").addEventListener("click", () => {
+        localStorage.setItem("cart", JSON.stringify([currentProduct]));
+        window.location.href = "checkout.html";
+      });
+
+      loadSuggestions(product.category);
+    }
+
+    async function loadSuggestions(category) {
+      const q = query(collection(db, "products"), where("approved", "==", true));
+      const querySnapshot = await getDocs(q);
+
+      const suggestions = [];
+      querySnapshot.forEach(doc => {
+        const data = doc.data();
+        if (doc.id !== productId) suggestions.push({ id: doc.id, ...data });
+      });
+
+      const related = suggestions
+        .filter(p => p.category === category)
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 4);
+
+      renderSuggestions(related);
+    }
+
+    function renderSuggestions(products) {
+      const list = document.getElementById("relatedProducts");
+      list.innerHTML = "";
+      if (!products.length) {
+        list.innerHTML = "<p>No related products.</p>";
+        return;
+      }
+
+      products.forEach(product => {
+        const div = document.createElement("div");
+        div.className = "suggestion-card";
+        div.innerHTML = `
+          <img src="${product.image}" alt="${product.name}" />
+          <h4>${product.name}</h4>
+          <p>₦${product.price}</p>
+          <button>View</button>
+        `;
+        div.querySelector("button").addEventListener("click", () => {
+          window.location.href = `product.html?id=${product.id}`;
+        });
+        list.appendChild(div);
+      });
+    }
+
+    loadProductDetails();
+  </script>
+</body>
+</html>

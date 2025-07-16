@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Upload Product - Admin</title>
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Upload New Product</h1>
+    <nav>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="../user/shop.html">View Shop</a>
+    </nav>
+  </header>
+
+  <section style="max-width: 500px; margin: auto; padding: 20px;">
+    <form id="uploadForm">
+      <input type="text" id="name" placeholder="Product Name" required><br><br>
+      <input type="number" id="price" placeholder="Price (₦)" required><br><br>
+      <textarea id="description" placeholder="Product Description"></textarea><br><br>
+      <input type="file" id="image" accept="image/*" required><br><br>
+      <button type="submit">Upload Product</button>
+      <p id="uploadMsg" style="color: green;"></p>
+    </form>
+  </section>
+
+  <script type="module">
+    import { db, storage } from "../js/firebase.js";
+    import { addDoc, collection } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+    const uploadForm = document.getElementById("uploadForm");
+    const msg = document.getElementById("uploadMsg");
+
+    uploadForm.onsubmit = async function (e) {
+      e.preventDefault();
+
+      const name = document.getElementById("name").value.trim();
+      const price = document.getElementById("price").value.trim();
+      const description = document.getElementById("description").value.trim();
+      const imageFile = document.getElementById("image").files[0];
+
+      if (!imageFile) {
+        alert("Please select an image.");
+        return;
+      }
+
+      const imageRef = ref(storage, `products/${Date.now()}_${imageFile.name}`);
+      try {
+        // Upload image
+        await uploadBytes(imageRef, imageFile);
+        const imageUrl = await getDownloadURL(imageRef);
+
+        // Save to Firestore
+        await addDoc(collection(db, "products"), {
+          name,
+          price,
+          description,
+          image: imageUrl,
+          createdAt: new Date().toISOString()
+        });
+
+        msg.innerText = "Product uploaded successfully!";
+        uploadForm.reset();
+      } catch (err) {
+        alert("Upload failed: " + err.message);
+      }
+    };
+  </script>
+</body>
+</html>
